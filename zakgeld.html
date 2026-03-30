@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Zakgeld">
+<title>Zakgeld</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  body { font-family: -apple-system, sans-serif; background: #f2f2f7; min-height: 100vh; padding: 0 0 40px; }
+
+  .header { background: #fff; padding: 16px 20px 12px; border-bottom: 0.5px solid #e0e0e0; position: sticky; top: 0; z-index: 10; }
+  .header h1 { font-size: 17px; font-weight: 600; color: #000; }
+
+  .saldo-card { background: #fff; margin: 16px; border-radius: 16px; padding: 28px 20px; text-align: center; }
+  .saldo-label { font-size: 13px; color: #8e8e93; margin-bottom: 6px; }
+  .saldo-amount { font-size: 52px; font-weight: 300; color: #000; letter-spacing: -2px; }
+  .saldo-amount.low { color: #ff3b30; }
+  .saldo-amount.zero { color: #8e8e93; }
+
+  .section { background: #fff; margin: 0 16px 16px; border-radius: 16px; overflow: hidden; }
+  .section-label { font-size: 12px; font-weight: 600; color: #8e8e93; text-transform: uppercase; letter-spacing: 0.5px; padding: 12px 16px 4px; }
+
+  .input-group { padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+  input[type=number], input[type=text] {
+    width: 100%; padding: 12px 14px; border-radius: 10px; border: 0.5px solid #d1d1d6;
+    background: #f2f2f7; font-size: 16px; color: #000; outline: none;
+    -webkit-appearance: none;
+  }
+  input[type=number]:focus, input[type=text]:focus { border-color: #007aff; background: #fff; }
+
+  .btn-row { display: flex; gap: 10px; padding: 0 16px 14px; }
+  .btn {
+    flex: 1; padding: 14px; border-radius: 12px; border: none;
+    font-size: 16px; font-weight: 500; cursor: pointer;
+    transition: transform 0.1s, opacity 0.1s;
+  }
+  .btn:active { transform: scale(0.97); opacity: 0.85; }
+  .btn-plus { background: #34c759; color: #fff; }
+  .btn-min { background: #ff3b30; color: #fff; }
+
+  .btn-betaaldag {
+    display: block; width: calc(100% - 32px); margin: 0 16px 16px;
+    padding: 14px; border-radius: 12px; border: none;
+    background: #007aff; color: #fff; font-size: 16px; font-weight: 500;
+    cursor: pointer; transition: transform 0.1s, opacity 0.1s;
+  }
+  .btn-betaaldag:active { transform: scale(0.98); opacity: 0.85; }
+
+  .history-item {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 13px 16px; border-bottom: 0.5px solid #f2f2f7;
+  }
+  .history-item:last-child { border-bottom: none; }
+  .hist-info { flex: 1; min-width: 0; }
+  .hist-label { font-size: 15px; color: #000; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .hist-date { font-size: 12px; color: #8e8e93; margin-top: 2px; }
+  .hist-amount { font-size: 16px; font-weight: 500; white-space: nowrap; margin-left: 12px; }
+  .hist-plus { color: #34c759; }
+  .hist-min { color: #ff3b30; }
+  .hist-delete { background: none; border: none; color: #c7c7cc; font-size: 22px; padding: 0 0 0 10px; cursor: pointer; line-height: 1; flex-shrink: 0; }
+  .hist-delete:active { color: #ff3b30; }
+  .hist-delete { background: none; border: none; color: #c7c7cc; font-size: 20px; padding: 0 0 0 12px; cursor: pointer; line-height: 1; }
+  .hist-delete:active { color: #ff3b30; }
+
+  .empty { text-align: center; padding: 24px; color: #8e8e93; font-size: 14px; }
+
+  .btn-reset {
+    display: block; width: calc(100% - 32px); margin: 0 16px;
+    padding: 14px; border-radius: 12px; border: 0.5px solid #d1d1d6;
+    background: #fff; color: #ff3b30; font-size: 15px; cursor: pointer;
+  }
+  .btn-reset:active { opacity: 0.7; }
+
+  .toast {
+    position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%);
+    background: rgba(0,0,0,0.75); color: #fff; padding: 10px 20px;
+    border-radius: 20px; font-size: 14px; opacity: 0;
+    transition: opacity 0.3s; pointer-events: none; white-space: nowrap;
+  }
+  .toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header"><h1>Zakgeld</h1></div>
+
+<div class="saldo-card">
+  <p class="saldo-label">Huidig saldo</p>
+  <p class="saldo-amount" id="saldo">$0</p>
+</div>
+
+<button class="btn-betaaldag" onclick="betaaldag()">+ $100 betaaldag</button>
+
+<div class="section">
+  <p class="section-label">Transactie</p>
+  <div class="input-group">
+    <input type="number" id="bedrag" placeholder="Bedrag in $" min="0" step="1" inputmode="decimal" />
+    <input type="text" id="omschrijving" placeholder="Omschrijving (optioneel)" />
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-plus" onclick="muteer(1)">+ Ontvangen</button>
+    <button class="btn btn-min" onclick="muteer(-1)">− Uitgeven</button>
+  </div>
+</div>
+
+<div class="section">
+  <p class="section-label">Geschiedenis</p>
+  <div id="history-list"><p class="empty">Nog geen transacties</p></div>
+</div>
+
+<button class="btn-reset" onclick="resetAlles()">Alles resetten</button>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const KEY = 'zakgeld_v1';
+
+  function laad() {
+    try { return JSON.parse(localStorage.getItem(KEY)) || { saldo: 0, history: [] }; }
+    catch(e) { return { saldo: 0, history: [] }; }
+  }
+
+  function sla(data) {
+    try { localStorage.setItem(KEY, JSON.stringify(data)); } catch(e) {}
+  }
+
+  function formatDatum(ts) {
+    const d = new Date(ts);
+    return d.toLocaleDateString('nl-NL', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+
+  function toon(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  function render() {
+    const data = laad();
+    const el = document.getElementById('saldo');
+    const saldo = Math.round(data.saldo);
+    el.textContent = '$' + saldo;
+    el.className = 'saldo-amount' + (saldo < 0 ? ' low' : saldo === 0 ? ' zero' : '');
+
+    const list = document.getElementById('history-list');
+    if (!data.history.length) {
+      list.innerHTML = '<p class="empty">Nog geen transacties</p>';
+      return;
+    }
+    const withIndex = data.history.map((h, i) => ({...h, origIndex: i}));
+    list.innerHTML = [...withIndex].reverse().slice(0, 20).map(h => `
+      <div class="history-item">
+        <div class="hist-info">
+          <div class="hist-label">${h.label}</div>
+          <div class="hist-date">${formatDatum(h.ts)}</div>
+        </div>
+        <span class="hist-amount ${h.delta > 0 ? 'hist-plus' : 'hist-min'}">${h.delta > 0 ? '+' : ''}$${Math.round(Math.abs(h.delta))}</span>
+        <button class="hist-delete" onclick="verwijder(${h.origIndex})">×</button>
+      </div>
+    `).join('');
+  }
+
+  function verwijder(index) {
+    const data = laad();
+    const item = data.history[index];
+    if (!item) return;
+    data.saldo -= item.delta;
+    data.history.splice(index, 1);
+    sla(data);
+    toon('Verwijderd');
+    render();
+  }
+
+  function muteer(richting) {
+    const bedrag = parseFloat(document.getElementById('bedrag').value);
+    const omschrijving = document.getElementById('omschrijving').value.trim();
+    if (!bedrag || bedrag <= 0) { document.getElementById('bedrag').focus(); return; }
+
+    const data = laad();
+    const delta = richting * bedrag;
+    data.saldo += delta;
+    data.history.push({ label: omschrijving || (richting > 0 ? 'Ontvangen' : 'Uitgave'), delta, ts: Date.now() });
+    sla(data);
+
+    document.getElementById('bedrag').value = '';
+    document.getElementById('omschrijving').value = '';
+    toon(richting > 0 ? '+$' + Math.round(bedrag) + ' toegevoegd' : '-$' + Math.round(bedrag) + ' afgetrokken');
+    render();
+  }
+
+  function betaaldag() {
+    const data = laad();
+    data.saldo += 100;
+    data.history.push({ label: 'Betaaldag', delta: 100, ts: Date.now() });
+    sla(data);
+    toon('+$100 betaaldag toegevoegd');
+    render();
+  }
+
+  function resetAlles() {
+    if (confirm('Weet je zeker dat je alles wil resetten?')) {
+      sla({ saldo: 0, history: [] });
+      toon('Gereset');
+      render();
+    }
+  }
+
+  render();
+</script>
+</body>
+</html>
